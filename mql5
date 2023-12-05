@@ -1,0 +1,125 @@
+
+//+------------------------------------------------------------------+
+//|                                                Hamster Scalping |
+//|                                                  forexroboteasy.com |
+//|                                            Forex Robot Easy Team |
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//|                                               Input Parameters |
+//+------------------------------------------------------------------+
+extern double LotSize = 0.01;              // Lot size for each trade
+extern int StopLoss = 50;                   // Stop loss in pips
+extern int TakeProfit = 100;                // Take profit in pips
+extern int RSI_Period = 14;                 // RSI period
+extern double RSI_Threshold = 30;           // RSI threshold for entry
+extern int ATR_Period = 14;                 // ATR period
+extern int ATR_Multiplier = 2;              // ATR multiplier for entry
+
+//+------------------------------------------------------------------+
+//|                                                  Global Variables |
+//+------------------------------------------------------------------+
+int ticket = 0;                            // Order ticket number
+double atrValue = 0;                       // ATR value
+double rsiValue = 0;                       // RSI value
+
+//+------------------------------------------------------------------+
+//|                                                     Initialization |
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   // Set appropriate account type
+   if(AccountInfoInteger(ACCOUNT_MARGIN_MODE) != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
+   {
+      Print('Please use a hedging account type!');
+      return INIT_FAILED;
+   }
+   
+   // Set minimum deposit
+   if(AccountInfoDouble(ACCOUNT_BALANCE) < 100)
+   {
+      Print('Minimum deposit required is $100!');
+      return INIT_FAILED;
+   }
+   
+   // Set ECN account and minimum spread
+   if(!AccountInfoInteger(ACCOUNT_TRADE_MODE))
+   {
+      Print('Please use an ECN account!');
+      return INIT_FAILED;
+   }
+   
+   if(AccountInfoDouble(ACCOUNT_SPREAD) != 0)
+   {
+      Print('Minimum spread required is 0!');
+      return INIT_FAILED;
+   }
+   
+   // Set currency pair and timeframe
+   SymbolSet('EURUSD');
+   PeriodSet(PERIOD_M5);
+   
+   return(INIT_SUCCEEDED);
+}
+
+//+------------------------------------------------------------------+
+//|                                           Expert Advisor Execution |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+   // Calculate ATR value
+   atrValue = iATR(Symbol(), Period(), ATR_Period, 0);
+   
+   // Calculate RSI value
+   rsiValue = iRSI(Symbol(), Period(), RSI_Period, PRICE_CLOSE, 0);
+   
+   // Check for entry conditions
+   if(rsiValue < RSI_Threshold && atrValue > ATR_Multiplier * Point)
+   {
+      // Buy order
+      ticket = OrderSend(Symbol(), OP_BUY, LotSize, Ask, Slippage, Bid - StopLoss * Point, Bid + TakeProfit * Point, 'Hamster Scalping', MagicNumber, 0, Blue);
+      
+      // Check for successful order placement
+      if(ticket > 0)
+      {
+         Print('Buy order placed successfully!');
+      }
+      else
+      {
+         Print('Failed to place buy order!');
+      }
+   }
+   else if(rsiValue > (100 - RSI_Threshold) && atrValue > ATR_Multiplier * Point)
+   {
+      // Sell order
+      ticket = OrderSend(Symbol(), OP_SELL, LotSize, Bid, Slippage, Ask + StopLoss * Point, Ask - TakeProfit * Point, 'Hamster Scalping', MagicNumber, 0, Red);
+      
+      // Check for successful order placement
+      if(ticket > 0)
+      {
+         Print('Sell order placed successfully!');
+      }
+      else
+      {
+         Print('Failed to place sell order!');
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//|                                             Expert Advisor Deinit |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+{
+   // Close any open orders
+   for(int i = OrdersTotal() - 1; i >= 0; i--)
+   {
+      if(OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+      {
+         if(OrderSymbol() == Symbol() && OrderMagicNumber() == MagicNumber)
+         {
+            OrderClose(OrderTicket(), OrderLots(), OrderClosePrice(), Slippage, clrNONE);
+         }
+      }
+   }
+}
